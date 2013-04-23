@@ -2,6 +2,7 @@ package idx
 
 import (
 	"encoding/binary"
+	"errors"
 	"github.com/Freeflow/matrix"
 	"os"
 )
@@ -18,64 +19,84 @@ import (
 xxxx     unsigned byte   ??               pixel
 */
 
-type header struct {
+const (
+	magicNumber int32 = 2051
+)
+
+type Header struct {
 	Magic, Count, Rows, Cols int32
 }
 
-type idxError int
+var FormatError = errors.New("Failed to read magic number: incorrect format")
+var IndexError = errors.New("Index out of range")
 
-func (err *idxError) Error() string {
-	return "Failed to read magic number: file not in correct format"
+type Reader struct {
+	Header *Header
+	reader *bufio.Reader
+	index  int64
 }
 
-func (err *idxError) String() string {
-	return err.Error()
-}
-
-func Read(fp string, ch chan<- *matrix.Matrix) (err error) {
-	f, err := os.Open(fp)
+func NewReader(r io.Reader) (rd *Reader, err error) {
+	h := new(Header)
+	err = binary.Read(r, binary.BigEndian, &h)
 	if err != nil {
 		return
 	}
-
-	var h header
-	err = binary.Read(f, binary.BigEndian, &h)
-	if err != nil {
+	if h.Magic != magicNumber {
+		err = new(FormatError)
 		return
 	}
+	rd = &Reader{bufio.NewReaderSize(r, h.Rows*h.Cols), h}
+	return
+}
 
-	if h.Magic != 2051 {
-		err = new(idxError)
-		return
-	}
+func Read(rd *Reader) (el []uint8, err error) {
+	rd.index++
+	h := rd.Header
+	el = make([]uint8, h.Rows*h.Cols)
+	err = binary.Read(rd.reader, binary.BigEndian, &el)
+	return
+}
 
-  count := int(h.Count)
-  count = 100
-  rows := int(h.Rows)
-  cols := int(h.Cols)
-  length := rows * cols
-	slice := make([]uint8, length)
-
-	go func() {
-		for i := 0; i < count; i++ {
-			err = binary.Read(f, binary.BigEndian, &slice)
-			if err != nil {
-				return
-			}
-			elements := make([]float64, length)
-			for j, x := range slice {
-				elements[j] = float64(x) / 255
-			}
-			var m *matrix.Matrix
-			m, err = matrix.New(elements, rows, cols)
-			if err != nil {
-				return
-			}
-			ch <- m
+func ReadAll(rd *Reader) (els [][]uint8, err error) {
+	for i := rd.index; i < rd.Header.Count; i++ {
+		el, err = rd.Read()
+		if err != nil {
+			return
 		}
-		close(ch)
-		f.Close()
-	}()
+		els = append(els, el)
+	}
+	return
+}
 
+type Writer struct {
+	writer *bufio.Writer
+	Header *Header
+}
+
+func NewWriter(w io.Writer, count, rows, cols int32) *Writer {
+	h := &Header{magicNumber, count, rows, cols}
+	return &Writer{bufio.NewWriterSize(w, h.Rows*h.Cols), h}
+}
+
+func (w *Writer) Flush() {
+	w.writer.Flush()
+}
+
+func (w *Writer) Write(el []uint8) (err error) {
+	err = binary.Write(w.writer, binary.BigEndian, el)
+	return
+}
+
+func (w *Writer) WriteAll(els [][]uint8) (err error) {
+	if len(els) != w.Header.Count {
+		err = new(IndexError)
+		return
+	}
+	var el []uint8
+	for i := 0; i < w.Header.Count; i++ {
+		el = els[i]
+		w.Write(el)
+	}
 	return
 }
