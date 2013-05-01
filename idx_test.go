@@ -1,37 +1,187 @@
 package idx
 
 import (
+	"bytes"
 	"testing"
 )
 
-func TestIdxNewReader(t *testing.T) {
+func TestNewReader(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x08, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x01, 0x02, 0x03, 0x04,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rd.Count != 1 {
+		t.Fatal("Got unexpect count")
+	}
+	if rd.Dimensions[0] != 1 || rd.Dimensions[1] != 2 || rd.Dimensions[2] != 2 {
+		t.Fatal("Got unexpect dimensions")
+	}
 }
 
-func TestIdxRead(t *testing.T) {
+func TestRead(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x08, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x01, 0x02, 0x03, 0x04,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	el, err := rd.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if el[0] != 1 || el[1] != 2 || el[2] != 3 || el[3] != 4 {
+		t.Fatal("Got unexpected results", el)
+	}
 }
 
-func TestIdxReadAll(t *testing.T) {
+func TestReadUint8(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x08, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x01, 0x02, 0x03, 0x04,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	el, err := rd.ReadUint8()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if el[0] != 1 || el[1] != 2 || el[2] != 3 || el[3] != 4 {
+		t.Fatal("Got unexpected results", el)
+	}
 }
 
-func TestIdxNewWriter(t *testing.T) {
+func TestReadInt8(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x09, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x01, 0x02, 0x03, 0x04,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	el, err := rd.ReadInt8()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if el[0] != 1 || el[1] != 2 || el[2] != 3 || el[3] != 4 {
+		t.Fatal("Got unexpected results", el)
+	}
 }
 
-func TestIdxWrite(t *testing.T) {
+func TestReadInt16(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x0B, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x01, 0x00, 0x02,
+		0x00, 0x03, 0x00, 0x04,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	el, err := rd.ReadInt16()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if el[0] != 1 || el[1] != 2 || el[2] != 3 || el[3] != 4 {
+		t.Fatal("Got unexpected results", el)
+	}
 }
 
-func TestIdxWriteAll(t *testing.T) {
+func TestReadInt32(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x0C, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x03,
+		0x00, 0x00, 0x00, 0x04,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	el, err := rd.ReadInt32()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if el[0] != 1 || el[1] != 2 || el[2] != 3 || el[3] != 4 {
+		t.Fatal("Got unexpected results", el)
+	}
 }
 
-func ExampleReader(t *testing.T) {
-  f = os.Open('some_path')
-	rd = NewReader(f)
-  ch := make(chan, rd.Header.Count)
-  go func() {
-    for i := 0; i < rd.Header.Count; i++ {
-      el, err := rd.Read()
-      ch <- el
-    }
-    close(ch)
-    f.Close()
-  }()
+func TestReadFloat32(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x0D, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x3f, 0x80, 0x00, 0x00,
+		0x40, 0x00, 0x00, 0x00,
+		0x40, 0x40, 0x00, 0x00,
+		0x40, 0x80, 0x00, 0x00,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	el, err := rd.ReadFloat32()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if el[0] != 1 || el[1] != 2 || el[2] != 3 || el[3] != 4 {
+		t.Fatal("Got unexpected results", el)
+	}
+}
+
+func TestReadFloat64(t *testing.T) {
+	sample := bytes.NewBuffer([]byte{
+		0x00, 0x00, 0x0E, 0x03,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x02,
+		0x3f, 0xf0, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x40, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x40, 0x08, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x40, 0x10, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+	})
+	rd, err := NewReader(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	el, err := rd.ReadFloat64()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if el[0] != 1 || el[1] != 2 || el[2] != 3 || el[3] != 4 {
+		t.Fatal("Got unexpected results", el)
+	}
 }
