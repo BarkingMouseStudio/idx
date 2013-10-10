@@ -1,197 +1,138 @@
 package idx
 
 import (
-	"bufio"
 	"encoding/binary"
-	"errors"
+	// "errors"
 	"io"
 )
 
-var FormatError = errors.New("Incorrect format")
-var IndexError = errors.New("Index out of range")
-var SizeError = errors.New("Dimensions too small")
-var TypeError = errors.New("Type mismatch")
+/* var (
+	FormatError = errors.New("Incorrect format")
+	IndexError  = errors.New("Index out of range")
+	SizeError   = errors.New("Dimensions too small")
+	TypeError   = errors.New("Type mismatch")
+) */
 
-func sliceSize(dims []int32) (size int) {
-	size = 1
-	if len(dims) < 2 {
-		return
-	}
-	for _, x := range dims[1:] {
-		size *= int(x)
-	}
-	return
-}
+const (
+	Uint8DataType   int8 = 0x08
+	Int8DataType    int8 = 0x09
+	Int16DataType   int8 = 0x0b
+	Int32DataType   int8 = 0x0c
+	Float32DataType int8 = 0x0d
+	Float64DataType int8 = 0x0e
+)
 
-var dataTypes = map[int8]int{
-	0x08: 1, // uint8
-	0x09: 1, // int8
-	0x0B: 2, // int16
-	0x0C: 4, // int32
-	0x0D: 4, // float32
-	0x0E: 8, // float64
+type Header struct {
+	Zeros         int16
+	DataType      int8
+	NumDimensions int8
 }
 
 type Reader struct {
-	DataType   int8
-	Count      int32
+	// Idx header for read-convenience
+	Header *Header
+
 	Dimensions []int32
-	reader     *bufio.Reader
-	size       int
-	index      int32
+
+	// Underlying io.Reader
+	reader io.Reader
 }
 
 func NewReader(r io.Reader) (rr *Reader, err error) {
-	var zeros int16
-	err = binary.Read(r, binary.BigEndian, &zeros)
-	if err != nil {
-		return
-	}
-	if zeros != 0 {
-		err = FormatError
-		return
-	}
-
-	var dataType int8
-	err = binary.Read(r, binary.BigEndian, &dataType)
-	if err != nil {
-		return
-	}
-	_, isValid := dataTypes[dataType]
-	if !isValid {
-		err = FormatError
-		return
-	}
-
-	var numDimensions int8
-	err = binary.Read(r, binary.BigEndian, &numDimensions)
+	header := new(Header)
+	err = binary.Read(r, binary.BigEndian, header)
 	if err != nil {
 		return
 	}
 
-	dimensions := make([]int32, numDimensions)
-	err = binary.Read(r, binary.BigEndian, &dimensions)
+	dims := make([]int32, header.NumDimensions)
+	err = binary.Read(r, binary.BigEndian, dims)
 	if err != nil {
 		return
 	}
 
-	if numDimensions < 1 || int(numDimensions) != len(dimensions) {
-		err = FormatError
-		return
+	rr = &Reader{
+		Header:     header,
+		Dimensions: dims,
+		reader:     r,
 	}
-
-	count := dimensions[0]
-	size := sliceSize(dimensions)
-	br := bufio.NewReaderSize(r, size)
-	rr = &Reader{dataType, count, dimensions, br, size, 0}
 	return
 }
 
-func (rr *Reader) Read() (el []byte, err error) {
-	if rr.index >= rr.Count {
-		err = IndexError
-		return
-	}
-	rr.index++
-	el = make([]byte, rr.size*dataTypes[rr.DataType])
-	rr.reader.Read(el)
-	return
+func (rr *Reader) Read(p []byte) (int, error) {
+	return rr.reader.Read(p)
 }
 
-func (rr *Reader) ReadUint8() (el []uint8, err error) {
-	if rr.index >= rr.Count {
-		err = IndexError
-		return
-	}
-	rr.index++
-	el = make([]uint8, rr.size)
-	binary.Read(rr.reader, binary.BigEndian, el)
-	return
+func (rr *Reader) ReadUint8(p []uint8) error {
+	return binary.Read(rr.reader, binary.BigEndian, p)
 }
 
-func (rr *Reader) ReadInt8() (el []int8, err error) {
-	if rr.index >= rr.Count {
-		err = IndexError
-		return
-	}
-	rr.index++
-	el = make([]int8, rr.size)
-	binary.Read(rr.reader, binary.BigEndian, el)
-	return
+func (rr *Reader) ReadInt8(p []int8) error {
+	return binary.Read(rr.reader, binary.BigEndian, p)
 }
 
-func (rr *Reader) ReadInt16() (el []int16, err error) {
-	if rr.index >= rr.Count {
-		err = IndexError
-		return
-	}
-	rr.index++
-	el = make([]int16, rr.size)
-	binary.Read(rr.reader, binary.BigEndian, el)
-	return
+func (rr *Reader) ReadInt16(p []int16) error {
+	return binary.Read(rr.reader, binary.BigEndian, p)
 }
 
-func (rr *Reader) ReadInt32() (el []int32, err error) {
-	if rr.index >= rr.Count {
-		err = IndexError
-		return
-	}
-	rr.index++
-	el = make([]int32, rr.size)
-	binary.Read(rr.reader, binary.BigEndian, el)
-	return
+func (rr *Reader) ReadInt32(p []int32) error {
+	return binary.Read(rr.reader, binary.BigEndian, p)
 }
 
-func (rr *Reader) ReadFloat32() (el []float32, err error) {
-	if rr.index >= rr.Count {
-		err = IndexError
-		return
-	}
-	rr.index++
-	el = make([]float32, rr.size)
-	binary.Read(rr.reader, binary.BigEndian, el)
-	return
+func (rr *Reader) ReadFloat32(p []float32) error {
+	return binary.Read(rr.reader, binary.BigEndian, p)
 }
 
-func (rr *Reader) ReadFloat64() (el []float64, err error) {
-	if rr.index >= rr.Count {
-		err = IndexError
-		return
-	}
-	rr.index++
-	el = make([]float64, rr.size)
-	binary.Read(rr.reader, binary.BigEndian, el)
-	return
+func (rr *Reader) ReadFloat64(p []float64) error {
+	return binary.Read(rr.reader, binary.BigEndian, p)
 }
 
-/* TODO:
 type Writer struct {
-	Dimensions []int32
-	writer     *bufio.Writer
-	index      int32
-	dataType   int8
+	// Idx header for write-convenience
+	header *Header
+
+	// Underlying io.Writer
+	writer io.Writer
 }
 
-func NewWriter(w io.Writer, dataType int8, dimensions []int32) (ww *Writer, err error) {
-	if len(dimensions) < 1 {
-		err = SizeError
-		return
+func NewWriter(w io.Writer, dataType int8, dimensions []int32) (ww *Writer) {
+	header := &Header{
+		DataType:      dataType,
+		NumDimensions: int8(len(dimensions)),
 	}
-	bw := bufio.NewWriterSize(w, sliceSize(dimensions))
-	ww = &Writer{dimensions, bw, 0, dataType}
+	binary.Write(w, binary.BigEndian, header)
+	binary.Write(w, binary.BigEndian, dimensions)
+	ww = &Writer{
+		header: header,
+		writer: w,
+	}
 	return
 }
 
-func (ww *Writer) Write(el []byte) (err error) {
-	if ww.index >= ww.Dimensions[0] {
-		err = IndexError
-		return
-	}
-	ww.index++
-	err = binary.Write(ww.writer, binary.BigEndian, el)
-	return
+func (ww *Writer) Write(p []byte) (int, error) {
+	return ww.writer.Write(p)
 }
 
-func (ww *Writer) Flush() {
-	ww.writer.Flush()
-} */
+func (ww *Writer) WriteUint8(p []uint8) error {
+	return binary.Write(ww.writer, binary.BigEndian, p)
+}
+
+func (ww *Writer) WriteInt8(p []int8) error {
+	return binary.Write(ww.writer, binary.BigEndian, p)
+}
+
+func (ww *Writer) WriteInt16(p []int16) error {
+	return binary.Write(ww.writer, binary.BigEndian, p)
+}
+
+func (ww *Writer) WriteInt32(p []int32) error {
+	return binary.Write(ww.writer, binary.BigEndian, p)
+}
+
+func (ww *Writer) WriteFloat32(p []float32) error {
+	return binary.Write(ww.writer, binary.BigEndian, p)
+}
+
+func (ww *Writer) WriteFloat64(p []float64) error {
+	return binary.Write(ww.writer, binary.BigEndian, p)
+}
